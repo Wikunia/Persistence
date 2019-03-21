@@ -8,3 +8,4 @@ Color indicates the number of steps and the connection shows the next step. You 
 
 ![visual](image.png)
 
+The code used for creating the graph can be found in: `persistence.jl` and can be called with `create_bf_list()` which creates the `graph.json`.
