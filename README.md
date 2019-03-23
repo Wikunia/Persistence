@@ -9,3 +9,12 @@ Color indicates the number of steps and the connection shows the next step. You 
 ![visual](image.png)
 
 The code used for creating the graph can be found in: `persistence.jl` and can be called with `create_bf_list()` which creates the `graph.json`.
+
+Some more visualizations:
+This shows a histogram of the persistence of all "ascending" numbers with up to 20 digits. "ascending" means that 23 is okay but 32. For multiplicative persistence they are the same anyway.
+
+![histo ascending](histo.png)
+
+The following histogram was created by reducing the search space. i.e 22 is not reasonable as 4 is smaller and they are equivalent as 2*2 = 4.
+
+![histo ascending filtered](histo_filtered.png)

@@ -1,6 +1,10 @@
 using JSON
+using Plots
+using PyPlot
 
 global cache
+global smallest_possible
+global concat_pow
 """
     create_cache(;longest=240)
 
@@ -8,7 +12,7 @@ Create the cache for faster calculation. This fills the variable `cache` with a 
 of a dictionary holding d^x for d: 2..9 and x up to longest. 
 """
 function create_cache(;longest=240)
-    global cache 
+    global cache, next_possible, concat_pow
     cache = Vector{Dict{Int,BigInt}}()
 
     for d = 2:9
@@ -18,6 +22,26 @@ function create_cache(;longest=240)
         end
         push!(cache, cd)
     end
+
+    ### check for up to 10^power whether the digits are reasonable
+    # i.e 22 is not reasonable as 4 is smaller same with 
+    power = 7
+    next_possible = zeros(Int, 10^power)
+    smallest_possible_for_x = 10^power*ones(Int, 9^power) 
+    l = length(smallest_possible_for_x)
+    last_i = 1
+    for i=1:10^power
+        m = prod(digits(i))
+        # if it ends in 0 => not reasonable only for step 2 
+        if 0 < m <= l && m % 10 != 0
+            if i < smallest_possible_for_x[m]
+                smallest_possible_for_x[m] = i
+                next_possible[last_i+1:i-1] .= i
+                last_i = i
+            end
+        end
+    end
+    smallest_possible_for_x[1:9] = collect(1:9);
 end
 
 """
@@ -223,6 +247,17 @@ function create_bf_list(;stop=100)
     write("graph.json", JSON.json(arr2json(result_arr)))
 end
 
+function create_histogram(;stop=10000)
+    gr()
+    create_cache(;longest=4)
+    bins = collect(0:12) # 0-11
+    arr = zeros(Int,stop+1)
+    for i = 0:stop
+        arr[i+1] = per_while(i) 
+    end
+    histogram(arr, label="Histogram", bins=bins, xticks=0:12)
+end
+
 """
     create_list(;longest=15, shortest=0, fct=per_while)
 
@@ -230,54 +265,78 @@ Check all reasonable numbers between a length of shortest and longest using the 
 Print if a number with higher persistence was found or a smaller number with the same persistence.
 """
 function create_list(;longest=15, shortest=0, fct=per_while)
+    global next_possible
+    pyplot()
     create_cache(;longest=longest)
     best_x = 0
     best_s = 0
     n = zeros(Int, 8) # from 2 to 9
-    n[8] = shortest
     c = parse(BigInt, "0")
     tt = 0.0
     start_time = time()
+    # variable which gets checked
+    x = BigInt(1)
+    current_length = 1
+    tail = 1
+    histo = zeros(Int,13)
     while true
-        for d in 8:-1:3
-            if n[d] < longest-(sum(n)-n[d])
-                n[d] += 1
-                break
-            end 
-            n[d:8] .= 0
+        x += 1
+        t = time_ns()
+        sx = string(x)
+        # keeping track of the current length of the number
+        if x >= 10^convert(BigInt,current_length)
+            current_length += 1
+            println("current_length: ", current_length)
         end
-        if all(i -> i == 0, n[3:8])
-            if n[2] == 0
-                n[2] = 1
-            elseif n[1] == 0
-                n[1] = 1
-                n[2] = 0
+        if sx[end] == '0'
+            # if the number is 10...0 then the next reasonable one is 22...2
+            if sx[1] == '1'
+                x = parse(BigInt,"2"^current_length)
             else
-                println("Checked all")
-                break
+                # check how many 0 we have in the end like 2223000 after 2222999
+                # then the next reasonable is 22233333
+                tail = 1
+                while sx[end-tail] == '0'
+                    tail += 1
+                end
+                front = sx[1:end-tail]
+                back = front[end]
+                x = parse(BigInt,front*back^tail)
             end
         end
-        if sum(n) <= shortest
-            continue
+        tt += time_ns()-t
+        sx = string(x)
+        if length(sx) > longest
+            println("Checked all")
+            break
         end
-        if n[1]+n[3] < 2
-            x = arr2x(n)
-            t = time_ns()
-            s = fct(x)
-            tt += time_ns()-t
-            if s > best_s || (s == best_s && x < best_x)
-                best_s = s
-                best_x = x
-                println("Found better: ", x , " needs ", s , " steps and has a length of: ", length(string(x)))
-            end
-            c += 1
-            if c % 10000 == 0
-                println("Checked ", convert(Int,(c/10000)) , " * 10,000 numbers")
-            end
+        first_digits = parse(Int,sx[1:min(length(sx),7)])
+        if next_possible[first_digits] != 0
+            # jumping to the next reasonable number
+            first_digits = next_possible[first_digits]
+            x = parse(BigInt, string(first_digits)*string(first_digits)[end:end]^(current_length-length(string(first_digits))))
         end
-        
+        t = time_ns()
+        s = fct(x)
+        histo[s+1] += 1
+        # tt += time_ns()-t
+        if s > best_s || (s == best_s && x < best_x)
+            best_s = s
+            best_x = x
+            println("Found better: ", x , " needs ", s , " steps and has a length of: ", length(string(x)))
+        end
+        c += 1
+        if c % 10000 == 0
+            println("Checked ", convert(Int,(c/10000)) , " * 10,000 numbers")
+        end
     end
     println("Checked ", c , " numbers")
     println("Time needed for per_while: ", tt/10^9)
     println("Time needed in total: ", time()-start_time)
+    Plots.plot(0:12, histo, linetype=:bar, xticks=0:12, yaxis=:log,
+              title="Numbers with a persistence of 0-12 up $longest digits\nof filtered \"ascending\" numbers i.e no 42 and no 24 only 8 as 2*4=8",
+              legend=false, size=(900,600), titlefont=font(14))
 end
+
+create_list(;longest=20)
+# create_histogram()
