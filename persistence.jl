@@ -36,7 +36,7 @@ function create_cache(;longest=240)
         if 0 < m <= l && m % 10 != 0
             if i < smallest_possible_for_x[m]
                 smallest_possible_for_x[m] = i
-                next_possible[last_i+1:i-1] .= i
+                next_possible[last_i+1:i] .= i
                 last_i = i
             end
         end
@@ -174,19 +174,6 @@ function per_while_print(x)
     return steps
 end
 
-"""
-    arr2x(a::Vector{Int})
-
-Return the number which is represented by the array representation
-"""
-function arr2x(a::Vector{Int})
-    str = ""
-    for i in 2:9
-        str *= repeat(string(i), a[i-1])
-    end
-    return parse(BigInt, str)
-end
-
 mutable struct Node
     name        :: String
     id          :: Int
@@ -281,7 +268,6 @@ function create_list(;longest=15, shortest=0, fct=per_while)
     histo = zeros(Int,13)
     while true
         x += 1
-        t = time_ns()
         sx = string(x)
         # keeping track of the current length of the number
         if x >= 10^convert(BigInt,current_length)
@@ -304,23 +290,22 @@ function create_list(;longest=15, shortest=0, fct=per_while)
                 x = parse(BigInt,front*back^tail)
             end
         end
-        tt += time_ns()-t
         sx = string(x)
         if length(sx) > longest
             println("Checked all")
             break
         end
         first_digits = parse(Int,sx[1:min(length(sx),7)])
-        if next_possible[first_digits] != 0
+        if next_possible[first_digits] != first_digits
             # jumping to the next reasonable number
             first_digits = next_possible[first_digits]
             x = parse(BigInt, string(first_digits)*string(first_digits)[end:end]^(current_length-length(string(first_digits))))
         end
         t = time_ns()
         s = fct(x)
+        tt += time_ns()-t
         histo[s+1] += 1
-        # tt += time_ns()-t
-        if s > best_s || (s == best_s && x < best_x)
+        if s > best_s
             best_s = s
             best_x = x
             println("Found better: ", x , " needs ", s , " steps and has a length of: ", length(string(x)))
@@ -338,5 +323,5 @@ function create_list(;longest=15, shortest=0, fct=per_while)
               legend=false, size=(900,600), titlefont=font(14))
 end
 
-create_list(;longest=20)
+create_list(;longest=40)
 # create_histogram()
