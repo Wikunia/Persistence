@@ -45,16 +45,25 @@ function create_cache(;longest=240)
 end
 
 """
-    per(x; steps=0)
+    per_small(x)
 
-Recursive way of calculating the persistence. 
+Recursive way of calculating the persistence works only with small numbers (not BigInt)
 Return the number of steps 
 """
-function per(x; steps=0)
-    while x >= 10
-        return per(prod(convert.(BigInt,digits(x))); steps=steps+1)
-    end
-    return steps
+function per_small(x)
+    x < 10 && return 0
+    return 1 + per_small(prod(digits(x)))
+end
+
+"""
+    per(x)
+
+Recursive way of calculating the persistence works with BigInt
+Return the number of steps 
+"""
+function per(x)
+    x < 10 && return 0
+    return 1 + per(prod(convert.(BigInt,digits(x))))
 end
 
 """
@@ -323,5 +332,5 @@ function create_list(;longest=15, shortest=0, fct=per_while)
               legend=false, size=(900,600), titlefont=font(14))
 end
 
-create_list(;longest=40)
+# create_list(;longest=40)
 # create_histogram()
