@@ -41,11 +41,11 @@ function create_cache(;longest=240)
     return cache, next_possible
 end
 
-function digitprod(d::T)::T where {T<:Integer}
+function digitprod(x::T)::T where {T<:Integer}
     val = one(T)
     ten = T(10)
-    while !iszero(val) && !iszero(d)
-        (d, r) = divrem(d, ten)
+    while !iszero(val) && !iszero(x)
+        (x, r) = divrem(x, ten)
         val *= r
     end
     return val
@@ -83,13 +83,15 @@ function per_while(x, cache)
     steps = 0
     n = zeros(Int, 8) # from 2 to 9
     while x >= 10
-        list = digits(x)
-        for l in list
-            if l == 0
+        val = one(BigInt)
+        ten =  BigInt(10)
+        while !iszero(val) && !iszero(x)
+            (x, r) = divrem(x, ten)
+            if r == 0
                 return steps+1
             end
-            if l > 1
-                n[l-1] += 1
+            if r > 1
+                n[r-1] += 1
             end
         end
         x = prod_arr(n, cache)
@@ -110,14 +112,16 @@ function per_while_arr(x, cache)
     arr = Vector{Int}()
     n = zeros(Int, 8) # from 2 to 9
     while x >= 10
-        list = digits(x)
-        for l in list
-            if l == 0
+        val = one(BigInt)
+        ten =  BigInt(10)
+        while !iszero(val) && !iszero(x)
+            (x, r) = divrem(x, ten)
+            if r == 0
                 push!(arr,0)
                 return arr
             end
-            if l > 1
-                n[l-1] += 1
+            if r > 1
+                n[r-1] += 1
             end
         end
         x = prod_arr(n, cache)
@@ -261,7 +265,7 @@ function create_histogram(;stop=10000)
 end
 
 """
-    create_list(;longest=15, shortest=0, fct=per_while)
+    create_list(;longest=15, shortest=0, fct=per_while_simple)
 
 Check all reasonable numbers between a length of shortest and longest using the function fct to calculate the persistence of a number.
 Print if a number with higher persistence was found or a smaller number with the same persistence.
@@ -276,7 +280,6 @@ function create_list(;longest=15, shortest=0, fct=per_while_simple)
 
     best_x = 0
     best_s = 0
-    n = zeros(Int, 8) # from 2 to 9
     c = parse(BigInt, "0")
     tt = 0.0
     start_time = time()
