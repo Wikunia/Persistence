@@ -2,9 +2,6 @@ using JSON
 using Plots
 using PyPlot
 
-global cache
-global smallest_possible
-global concat_pow
 """
     create_cache(;longest=240)
 
@@ -12,13 +9,12 @@ Create the cache for faster calculation. This fills the variable `cache` with a 
 of a dictionary holding d^x for d: 2..9 and x up to longest. 
 """
 function create_cache(;longest=240)
-    global cache, next_possible, concat_pow
-    cache = Vector{Dict{Int,BigInt}}()
+    cache = Vector{Vector{BigInt}}()
 
     for d = 2:9
-        cd = Dict{Int,BigInt}()
+        cd = zeros(longest+1)
         for i = 0:longest
-            cd[i] = d^convert(BigInt,i)
+            cd[i+1] = d^convert(BigInt,i)
         end
         push!(cache, cd)
     end
@@ -42,6 +38,17 @@ function create_cache(;longest=240)
         end
     end
     smallest_possible_for_x[1:9] = collect(1:9);
+    return cache, next_possible
+end
+
+function digitprod(d::T)::T where {T<:Integer}
+    val = one(T)
+    ten = T(10)
+    while !iszero(val) && !iszero(d)
+        (d, r) = divrem(d, ten)
+        val *= r
+    end
+    return val
 end
 
 """
@@ -52,7 +59,7 @@ Return the number of steps
 """
 function per_small(x)
     x < 10 && return 0
-    return 1 + per_small(prod(digits(x)))
+    return 1 + per_small(digitprod(x))
 end
 
 """
@@ -67,12 +74,12 @@ function per(x)
 end
 
 """
-    per_while(x)
+    per_while(x, cache)
 
 while way of calculating the persistence by using the cache. Fastest for large numbers.
 Return the number of steps 
 """
-function per_while(x)
+function per_while(x, cache)
     steps = 0
     n = zeros(Int, 8) # from 2 to 9
     while x >= 10
@@ -85,7 +92,7 @@ function per_while(x)
                 n[l-1] += 1
             end
         end
-        x = prod_arr(n)
+        x = prod_arr(n, cache)
         n[1:8] .= 0
         steps += 1
     end
@@ -98,7 +105,7 @@ end
 while way of calculating the persistence by using the cache. Fastest for large numbers.
 Return the steps. i.e x=3279 -> [378,168,48,32,6]
 """
-function per_while_arr(x)
+function per_while_arr(x, cache)
     steps = 0
     arr = Vector{Int}()
     n = zeros(Int, 8) # from 2 to 9
@@ -113,7 +120,7 @@ function per_while_arr(x)
                 n[l-1] += 1
             end
         end
-        x = prod_arr(n)
+        x = prod_arr(n, cache)
         push!(arr,x)
         n[1:8] .= 0
         steps += 1
@@ -122,17 +129,16 @@ function per_while_arr(x)
 end
 
 """
-    prod_arr(a::Vector{Int})
+    prod_arr(a::Vector{Int},cache)
 
 Use the array representation of a number to calculate the product of its digits. 
 It uses the global cache
 Return the product i.e x=2379 => array respresentation [1,1,0,0,0,1,0,1] -> 378
 """
-function prod_arr(a::Vector{Int})
-    global cache
+function prod_arr(a::Vector{Int},cache)
     n = ones(BigInt, 8)
     for i=2:9
-        n[i-1] = cache[i-1][a[i-1]]
+        n[i-1] = cache[i-1][a[i-1]+1]
     end
     return prod(n)
 end
@@ -161,7 +167,7 @@ Return the number of steps
 function per_while_simple_small(x)
     steps = 0
     while x >= 10
-        x = prod(digits(x)) 
+        x = digitprod(x) 
         steps += 1
     end
     return steps
@@ -238,18 +244,18 @@ Writes a graph representation of all (bruteforce = bf) numbers from 0 to stop to
 function create_bf_list(;stop=100)
     result_arr = fill(Vector{Int}(),stop+1)
     for i = 0:stop
-        result_arr[i+1] = per_while_arr(i) 
+        result_arr[i+1] = per_while_arr(i, cache) 
     end
     write("graph.json", JSON.json(arr2json(result_arr)))
 end
 
 function create_histogram(;stop=10000)
     gr()
-    create_cache(;longest=4)
+    cache, next_possible = create_cache(;longest=4)
     bins = collect(0:12) # 0-11
     arr = zeros(Int,stop+1)
     for i = 0:stop
-        arr[i+1] = per_while(i) 
+        arr[i+1] = per_while(i, cache) 
     end
     histogram(arr, label="Histogram", bins=bins, xticks=0:12)
 end
@@ -261,9 +267,13 @@ Check all reasonable numbers between a length of shortest and longest using the 
 Print if a number with higher persistence was found or a smaller number with the same persistence.
 """
 function create_list(;longest=15, shortest=0, fct=per_while)
-    global next_possible
     pyplot()
-    create_cache(;longest=longest)
+    cache, next_possible = create_cache(;longest=longest)
+    fct_params = []
+    if string(fct) == "per_while"
+        push!(fct_params, cache)
+    end
+
     best_x = 0
     best_s = 0
     n = zeros(Int, 8) # from 2 to 9
@@ -311,7 +321,7 @@ function create_list(;longest=15, shortest=0, fct=per_while)
             x = parse(BigInt, string(first_digits)*string(first_digits)[end:end]^(current_length-length(string(first_digits))))
         end
         t = time_ns()
-        s = fct(x)
+        s = fct(x, fct_params...)
         tt += time_ns()-t
         histo[s+1] += 1
         if s > best_s
@@ -332,5 +342,5 @@ function create_list(;longest=15, shortest=0, fct=per_while)
               legend=false, size=(900,600), titlefont=font(14))
 end
 
-# create_list(;longest=40)
+create_list(;longest=40)
 # create_histogram()
