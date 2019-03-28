@@ -152,7 +152,7 @@ Return the number of steps
 function per_while_simple(x)
     steps = 0
     while x >= 10
-        x = prod(convert.(BigInt,digits(x)))
+        x = digitprod(x)
         steps += 1
     end
     return steps
@@ -266,7 +266,7 @@ end
 Check all reasonable numbers between a length of shortest and longest using the function fct to calculate the persistence of a number.
 Print if a number with higher persistence was found or a smaller number with the same persistence.
 """
-function create_list(;longest=15, shortest=0, fct=per_while)
+function create_list(;longest=15, shortest=0, fct=per_while_simple)
     pyplot()
     cache, next_possible = create_cache(;longest=longest)
     fct_params = []
